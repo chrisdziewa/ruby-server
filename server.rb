@@ -63,7 +63,7 @@ loop do
       # Gather contents for response body from requested file
       contents = File.open(path, "rb").read
       client.print "HTTP/1.1 200 OK\r\n" +
-                      "Content-Type: text/html\r\n" +
+                      "Content-Type: #{content_type(path)}\r\n" +
                       "Content-Length: #{contents.length}\r\n" +
                       "Connection: close\r\n"
 
@@ -80,6 +80,7 @@ loop do
       client.print "\r\n"
 
       client.print message
+      client.print "\r\n"
     end
 
     client.close
