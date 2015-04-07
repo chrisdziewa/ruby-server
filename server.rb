@@ -76,10 +76,9 @@ loop do
         json_data = client.read(content_length)
         json_object = JSON.parse(json_data)
 
-        viking = json_object["viking"]
         dynamic_content = ""
-        viking.each do |key, value|
-          dynamic_content += "<li>#{key.to_s}: #{value}</li>"
+        json_object["viking"].each do |key, value|
+          dynamic_content += "<li>#{key.to_s.capitalize}: #{value}</li>"
         end
 
         contents = File.open(path, "rb").read
