@@ -1,5 +1,6 @@
 require 'socket'
 require 'uri'
+require 'json'
 
 WEB_ROOT = "./public"
 
@@ -45,15 +46,22 @@ end
 DEFAULT_CONTENT_TYPE = 'application/octet-stream'
 
 puts "Server listening on port 3000"
-server = TCPServer.open(port)
+server = TCPServer.open(host, port)
 
 loop do
     client = server.accept
 
-    request_line = client.gets
-    request_parts = request_line.split(" ")
-    request_type = request_parts[0]
-    original_path  = request_parts[1]
+    header = ""
+    while line = client.gets
+      header += line
+      break if line == "\r\n"
+   end
+
+   header_lines = header.split("\n")
+   STDERR.puts header_lines
+
+   request_line = header_lines[0]
+   request_type = request_line.split(" ")[0]
 
     path = requested_file(request_line)
 
@@ -61,15 +69,41 @@ loop do
 
     if File.exist?(path) && !File.directory?(path)
       # Gather contents for response body from requested file
-      contents = File.open(path, "rb").read
-      client.print "HTTP/1.1 200 OK\r\n" +
-                      "Content-Type: #{content_type(path)}\r\n" +
-                      "Content-Length: #{contents.length}\r\n" +
-                      "Connection: close\r\n"
+      if request_type == "POST"
 
-      client.print "\r\n"
+        # Pull JSON lobject length from request header
+        content_length = header_lines[2].split(" ")[1].to_i
+        json_data = client.read(content_length)
+        json_object = JSON.parse(json_data)
 
-      client.print contents
+        viking = json_object["viking"]
+        dynamic_content = ""
+        viking.each do |key, value|
+          dynamic_content += "<li>#{key.to_s}: #{value}</li>"
+        end
+
+        contents = File.open(path, "rb").read
+
+        contents.gsub!("<%= yield %>", dynamic_content)
+        client.print "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: #{content_type(path)}\r\n" +
+                        "Content-Length: #{contents.length}\r\n" +
+                        "Connection: close\r\n"
+
+        client.print "\r\n"
+
+        client.print contents
+      elsif request_type == "GET"
+        contents = File.open(path, "rb").read
+        client.print "HTTP/1.1 200 OK\r\n" +
+                        "Content-Type: #{content_type(path)}\r\n" +
+                        "Content-Length: #{contents.length}\r\n" +
+                        "Connection: close\r\n"
+
+        client.print "\r\n"
+
+        client.print contents
+      end
     else
       message = "The requested file was not found on our server."
       client.print "HTTP/1.1 404 Not Found\r\n" +
@@ -80,7 +114,6 @@ loop do
       client.print "\r\n"
 
       client.print message
-      client.print "\r\n"
     end
 
     client.close
